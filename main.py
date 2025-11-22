@@ -6,7 +6,7 @@ from pyrogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton
 from pyrogram.errors import FloodWait, InputUserDeactivated, UserIsBlocked, PeerIdInvalid, UserNotParticipant, ChatAdminRequired
 import motor.motor_asyncio
 
-BOT_INFO = "v2.1.0 | 2025-11-22 18:15 IST | Update: Report cmd replies instead of deleting"
+BOT_INFO = "v2.2.0 | 2025-11-22 18:40 IST | Update: ZWNJ Char for reliable notifs"
 
 api_id = int(os.getenv("API_ID", "28188113"))
 api_hash = os.getenv("API_HASH", "81719734c6a0af15e5d35006655c1f84")
@@ -179,7 +179,6 @@ async def report_admins(bot, message):
     if message.from_user:
         is_joined, buttons = await get_fsub_buttons(bot, message.from_user.id)
         if not is_joined:
-            # Agar FSub fail hota hai, to reply karo taki user dekhe
             return await message.reply_text(
                 "<b>⚠️ Join Channel First!</b>",
                 reply_markup=buttons
@@ -203,25 +202,19 @@ async def report_admins(bot, message):
     else:
         text = "🆘 <b>Admins Called!</b>"
 
-    # --- CHANGE: DO NOT DELETE MESSAGE ---
-    # try:
-    #     await message.delete()
-    # except:
-    #     pass 
-
     mentions = []
     try:
         async for member in bot.get_chat_members(message.chat.id, filter=enums.ChatMembersFilter.ADMINISTRATORS):
             if not member.user.is_bot and not member.user.is_deleted:
-                mentions.append(f"<a href='tg://user?id={member.user.id}'>\u200b</a>")
+                # Using \u200c (Zero Width Non-Joiner) instead of \u200b
+                mentions.append(f"<a href='tg://user?id={member.user.id}'>\u200c</a>")
     except Exception:
         return await message.reply_text("<b>❌ Error!</b>")
 
     if not mentions:
         return await message.reply_text("<b>❌ No Admins!</b>")
 
-    chunk_size = 5
-    # --- CHANGE: ALWAYS REPLY TO THE COMMAND MESSAGE ---
+    chunk_size = 1 # Keep 1 for admins to ensure reliable notification
     reply_id = message.id 
 
     for i in range(0, len(mentions), chunk_size):
@@ -230,15 +223,15 @@ async def report_admins(bot, message):
         final_msg = f"{text}{hidden_tags}"
         
         try:
-            # Always reply to the user's command
             await bot.send_message(
                 message.chat.id, 
                 final_msg, 
                 reply_to_message_id=reply_id, 
                 parse_mode=enums.ParseMode.HTML,
+                disable_web_page_preview=True,
                 disable_notification=False
             )
-            await asyncio.sleep(2)
+            await asyncio.sleep(1)
         except FloodWait as e:
             await asyncio.sleep(e.value)
         except Exception as e:
@@ -296,7 +289,8 @@ async def tag_all(bot, message: Message):
     try:
         async for member in bot.get_chat_members(message.chat.id):
             if not member.user.is_bot and not member.user.is_deleted:
-                mentions.append(f"<a href='tg://user?id={member.user.id}'>\u200b</a>")
+                # Using \u200c (Zero Width Non-Joiner)
+                mentions.append(f"<a href='tg://user?id={member.user.id}'>\u200c</a>")
     except ChatAdminRequired:
         return await message.reply_text("<b>❌ Make me Admin!</b>")
     except Exception:
@@ -320,6 +314,7 @@ async def tag_all(bot, message: Message):
                     final_msg, 
                     reply_to_message_id=reply_id, 
                     parse_mode=enums.ParseMode.HTML,
+                    disable_web_page_preview=True,
                     disable_notification=False
                 )
             else:
@@ -327,6 +322,7 @@ async def tag_all(bot, message: Message):
                     message.chat.id, 
                     final_msg, 
                     parse_mode=enums.ParseMode.HTML,
+                    disable_web_page_preview=True,
                     disable_notification=False
                 )
             await asyncio.sleep(2)
