@@ -7,7 +7,8 @@ import motor.motor_asyncio
 
 # --- CONFIGURATION ---
 API_ID = int(os.getenv("API_ID", "28188113"))
-API_HASH = os.getenv("API_HASH", "81719734c6a0af15e5d35006655c1f84"))
+# Fixed: Removed extra closing parenthesis ')' at the end
+API_HASH = os.getenv("API_HASH", "81719734c6a0af15e5d35006655c1f84")
 BOT_TOKEN = os.getenv("BOT_TOKEN", "8551333890:AAGYD3inPZw9UAYLu8DCuGhfTU41AyBuVv4")
 MONGO_URL = os.getenv("MONGO_URL", "mongodb+srv://ar:durgesh@ar.yqov3el.mongodb.net/?retryWrites=true&w=majority")
 OWNER_ID = int(os.getenv("OWNER_ID", "1679112664"))
