@@ -6,7 +6,7 @@ from pyrogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton
 from pyrogram.errors import FloodWait, InputUserDeactivated, UserIsBlocked, PeerIdInvalid, UserNotParticipant, ChatAdminRequired
 import motor.motor_asyncio
 
-BOT_INFO = "v2.2.0 | 2025-11-22 18:40 IST | Update: ZWNJ Char for reliable notifs"
+BOT_INFO = "v2.3.0 | 2025-11-22 19:00 IST | Update: Using \\u2063 char for Notifications"
 
 api_id = int(os.getenv("API_ID", "28188113"))
 api_hash = os.getenv("API_HASH", "81719734c6a0af15e5d35006655c1f84")
@@ -185,6 +185,7 @@ async def report_admins(bot, message):
             )
 
     try:
+        await message.react(emoji="👀")
         await db.add_chat(message.chat.id)
     except:
         pass
@@ -206,15 +207,15 @@ async def report_admins(bot, message):
     try:
         async for member in bot.get_chat_members(message.chat.id, filter=enums.ChatMembersFilter.ADMINISTRATORS):
             if not member.user.is_bot and not member.user.is_deleted:
-                # Using \u200c (Zero Width Non-Joiner) instead of \u200b
-                mentions.append(f"<a href='tg://user?id={member.user.id}'>\u200c</a>")
+                # Using \u2063 (Invisible Separator) - MOST RELIABLE for Notifications
+                mentions.append(f"<a href='tg://user?id={member.user.id}'>\u2063</a>")
     except Exception:
         return await message.reply_text("<b>❌ Error!</b>")
 
     if not mentions:
         return await message.reply_text("<b>❌ No Admins!</b>")
 
-    chunk_size = 1 # Keep 1 for admins to ensure reliable notification
+    chunk_size = 5
     reply_id = message.id 
 
     for i in range(0, len(mentions), chunk_size):
@@ -289,8 +290,8 @@ async def tag_all(bot, message: Message):
     try:
         async for member in bot.get_chat_members(message.chat.id):
             if not member.user.is_bot and not member.user.is_deleted:
-                # Using \u200c (Zero Width Non-Joiner)
-                mentions.append(f"<a href='tg://user?id={member.user.id}'>\u200c</a>")
+                # Using \u2063 (Invisible Separator)
+                mentions.append(f"<a href='tg://user?id={member.user.id}'>\u2063</a>")
     except ChatAdminRequired:
         return await message.reply_text("<b>❌ Make me Admin!</b>")
     except Exception:
