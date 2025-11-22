@@ -1,17 +1,21 @@
 import os
 import asyncio
+import random
 from pyrogram import Client, filters, enums
-from pyrogram.types import Message
-from pyrogram.errors import FloodWait, InputUserDeactivated, UserIsBlocked, PeerIdInvalid
+from pyrogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton
+from pyrogram.errors import FloodWait, InputUserDeactivated, UserIsBlocked, PeerIdInvalid, UserNotParticipant
 import motor.motor_asyncio
 
 # --- CONFIGURATION ---
-API_ID = int(os.getenv("API_ID", "28188113"))
-# Fixed: Removed extra closing parenthesis ')' at the end
-API_HASH = os.getenv("API_HASH", "81719734c6a0af15e5d35006655c1f84")
-BOT_TOKEN = os.getenv("BOT_TOKEN", "8551333890:AAGYD3inPZw9UAYLu8DCuGhfTU41AyBuVv4")
-MONGO_URL = os.getenv("MONGO_URL", "mongodb+srv://MentionMembers:MentionMembers@mentionmembers.yog0s3w.mongodb.net")
-OWNER_ID = int(os.getenv("OWNER_ID", "1679112664"))
+api_id = int(os.getenv("API_ID", "28188113"))
+api_hash = os.getenv("API_HASH", "81719734c6a0af15e5d35006655c1f84")
+bot_token = os.getenv("BOT_TOKEN", "8585167958:AAFfVSeMuMeQaX1nswKWLrVWzjwSgv2xrgc")
+mongo_url = os.getenv("MONGO_URL", "mongodb+srv://MentionMembers:MentionMembers@mentionmembers.yog0s3w.mongodb.net")
+owner_id = int(os.getenv("OWNER_ID", "1679112664"))
+fsub_channels = [int(x) for x in os.getenv("FSUB_CHANNELS", "").split()]
+
+# --- REACTION EMOJIS ---
+REACTION_EMOJIS = ["👍", "❤️", "🔥", "🥰", "👏", "😁", "🎉", "🤩", "👌"]
 
 # --- MONGODB HELPER ---
 class Database:
@@ -56,43 +60,104 @@ class Database:
         await self.grp.delete_many({'id': int(chat_id)})
 
 # Initialize Database and Bot
-db = Database(MONGO_URL, "MentionBotDB")
-app = Client("mention_bot", api_id=API_ID, api_hash=API_HASH, bot_token=BOT_TOKEN)
+db = Database(mongo_url, "MentionBotDB")
+app = Client("mention_bot", api_id=api_id, api_hash=api_hash, bot_token=bot_token)
+
+# --- FSUB HELPER FUNCTION ---
+async def get_fsub_buttons(bot, user_id):
+    """
+    User ko saare channels ke liye check karta hai.
+    Jo join nahi kiye, unke buttons return karta hai.
+    """
+    if not fsub_channels:
+        return True, None
+
+    missing_channels = []
+    for channel_id in fsub_channels:
+        try:
+            member = await bot.get_chat_member(channel_id, user_id)
+            if member.status in [enums.ChatMemberStatus.BANNED, enums.ChatMemberStatus.LEFT]:
+                raise UserNotParticipant
+        except UserNotParticipant:
+            try:
+                chat = await bot.get_chat(channel_id)
+                link = chat.invite_link
+                if not link:
+                    link = await bot.export_chat_invite_link(channel_id)
+                missing_channels.append((chat.title, link))
+            except Exception as e:
+                print(f"Error in FSub Channel {channel_id}: {e}")
+                continue
+        except Exception:
+            continue
+
+    if not missing_channels:
+        return True, None
+
+    buttons = []
+    for title, link in missing_channels:
+        buttons.append([InlineKeyboardButton(text=f"Join {title}", url=link)])
+    
+    return False, InlineKeyboardMarkup(buttons)
 
 # --- COMMANDS ---
 
-@app.on_message(filters.command("start") & filters.private)
+@app.on_message(filters.command("start"))
 async def start(bot, message):
+    # Random Reaction Logic
+    try:
+        await message.react(emoji=random.choice(REACTION_EMOJIS))
+    except:
+        pass 
+
+    # FSub Check
+    is_joined, buttons = await get_fsub_buttons(bot, message.from_user.id)
+    if not is_joined:
+        return await message.reply_text(
+            "**⚠️ Access Denied!**\n\nPlease join our updates channels to use this bot.",
+            reply_markup=buttons
+        )
+
+    # DB Save logic for User (PM & GC both)
     await db.add_user(message.from_user.id)
-    await message.reply_text(f"Hey {message.from_user.mention}, main ready hu! Group me add karo aur `/all` use karo.")
+
+    # Agar Group mein hai, to Chat ID bhi save karo
+    if message.chat.type in [enums.ChatType.GROUP, enums.ChatType.SUPERGROUP]:
+        await db.add_chat(message.chat.id)
+        await message.reply_text(f"Hey {message.from_user.mention}, I am ready! Use `/all` to tag everyone.")
+    else:
+        # PM Message
+        await message.reply_text(f"Hey {message.from_user.mention}, I am ready! Add me to your group and use `/all`.")
 
 # --- NEW: AUTO SAVE WHEN ADDED TO GROUP ---
 @app.on_message(filters.new_chat_members)
 async def added_to_group(bot, message):
     for member in message.new_chat_members:
-        # Agar naya member khud Bot hai
         if member.id == (await bot.get_me()).id:
             await db.add_chat(message.chat.id)
+            try:
+                await message.react(emoji=random.choice(REACTION_EMOJIS))
+            except:
+                pass
             await message.reply_text(
                 "Thanks for adding me! 😎\n"
                 "1. Promote me as **Admin**.\n"
                 "2. Use `/all` to tag everyone."
             )
 
-@app.on_message(filters.command("stats") & filters.user(OWNER_ID))
+@app.on_message(filters.command("stats") & filters.user(owner_id))
 async def stats(bot, message):
     users = await db.total_users_count()
     groups = await db.total_chat_count()
     await message.reply_text(f"📊 **Bot Stats:**\n\n👤 Users: {users}\n👥 Groups: {groups}")
 
-@app.on_message(filters.command(["broadcast", "gcast"]) & filters.user(OWNER_ID))
+@app.on_message(filters.command(["broadcast", "gcast"]) & filters.user(owner_id))
 async def broadcast(bot, message):
     if not message.reply_to_message:
         return await message.reply_text("Reply to a message to broadcast.")
     
     msg = await message.reply_text("🚀 Broadcasting started...")
     
-    # Broadcast to Users
     users = await db.get_all_users()
     sent_users, failed_users = 0, 0
     async for user in users:
@@ -109,7 +174,6 @@ async def broadcast(bot, message):
         except:
             failed_users += 1
             
-    # Broadcast to Groups
     groups = await db.get_all_chats()
     sent_groups, failed_groups = 0, 0
     async for group in groups:
@@ -121,7 +185,6 @@ async def broadcast(bot, message):
             await message.reply_to_message.copy(chat_id=group['id'])
             sent_groups += 1
         except:
-            # Agar bot group se remove ho gaya hai to DB se hata do
             await db.delete_chat(group['id'])
             failed_groups += 1
 
@@ -134,10 +197,17 @@ async def broadcast(bot, message):
 @app.on_message(filters.command("all") | filters.regex(r"^@all"))
 async def tag_all(bot, message: Message):
     if message.chat.type not in [enums.ChatType.GROUP, enums.ChatType.SUPERGROUP]:
-        return await message.reply_text("Yeh command sirf groups mein kaam karti hai.")
+        return await message.reply_text("This command only works in groups.")
     
-    # --- FALLBACK: SAVE GROUP IF NOT EXIST ---
-    # Agar offline tha aur add hua, to ye line sure karegi ki ab DB me save ho jaye
+    # --- FSub Check for Group Users ---
+    if message.from_user:
+        is_joined, buttons = await get_fsub_buttons(bot, message.from_user.id)
+        if not is_joined:
+            return await message.reply_text(
+                f"Hey {message.from_user.mention}, please join the channel first to use this command!",
+                reply_markup=buttons
+            )
+
     try:
         await db.add_chat(message.chat.id)
     except:
@@ -148,7 +218,8 @@ async def tag_all(bot, message: Message):
         try:
             member = await bot.get_chat_member(message.chat.id, message.from_user.id)
             if member.status not in [enums.ChatMemberStatus.ADMINISTRATOR, enums.ChatMemberStatus.OWNER]:
-                return 
+                # Yahan par change kiya hai - Return with a warning message
+                return await message.reply_text("🚫 **Admin Only!**\nYou need to be an Admin or Owner to use this command.")
         except:
             return
     
