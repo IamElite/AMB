@@ -1,0 +1,6 @@
+
+tgcrypto
+motor
+dnspython
+
+https://github.com/IamDvis/pyrogram/archive/dvis.zip
