@@ -1,23 +1,22 @@
 import os
 import asyncio
 import random
-from pyrogram import Client, filters, enums
+from pyrogram import Client, filters, enums, idle
 from pyrogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton
 from pyrogram.errors import FloodWait, InputUserDeactivated, UserIsBlocked, PeerIdInvalid, UserNotParticipant, ChatAdminRequired
 import motor.motor_asyncio
 
-# --- CONFIGURATION ---
+BOT_INFO = "v1.3.0 | 2025-11-22 14:59 IST | Update: Code cleaned, comments removed"
+
 api_id = int(os.getenv("API_ID", "28188113"))
 api_hash = os.getenv("API_HASH", "81719734c6a0af15e5d35006655c1f84")
 bot_token = os.getenv("BOT_TOKEN", "8585167958:AAFfVSeMuMeQaX1nswKWLrVWzjwSgv2xrgc")
 mongo_url = os.getenv("MONGO_URL", "mongodb+srv://MentionMembers:MentionMembers@mentionmembers.yog0s3w.mongodb.net")
-owner_id = int(os.getenv("OWNER_ID", "1679112664"))
+owner_ids = [int(x) for x in os.getenv("OWNER_ID", "1679112664").split()]
 fsub_channels = [int(x) for x in os.getenv("FSUB_CHANNELS", "").split()]
 
-# --- REACTION EMOJIS ---
 REACTION_EMOJIS = ["👍", "❤️", "🔥", "🥰", "👏", "😁", "🎉", "🤩", "👌"]
 
-# --- MONGODB HELPER ---
 class Database:
     def __init__(self, uri, database_name):
         self._client = motor.motor_asyncio.AsyncIOMotorClient(uri)
@@ -25,7 +24,6 @@ class Database:
         self.col = self.db.users
         self.grp = self.db.groups
 
-    # --- USER METHODS ---
     async def add_user(self, id):
         if not await self.is_user_exist(id):
             await self.col.insert_one({'id': int(id)})
@@ -42,7 +40,6 @@ class Database:
     async def delete_user(self, user_id):
         await self.col.delete_many({'id': int(user_id)})
 
-    # --- GROUP METHODS ---
     async def add_chat(self, chat_id):
         if not await self.is_chat_exist(chat_id):
             await self.grp.insert_one({'id': int(chat_id)})
@@ -59,11 +56,9 @@ class Database:
     async def delete_chat(self, chat_id):
         await self.grp.delete_many({'id': int(chat_id)})
 
-# Initialize Database and Bot
 db = Database(mongo_url, "MentionBotDB")
 app = Client("mention_bot", api_id=api_id, api_hash=api_hash, bot_token=bot_token)
 
-# --- FSUB HELPER FUNCTION ---
 async def get_fsub_buttons(bot, user_id):
     if not fsub_channels:
         return True, None
@@ -95,8 +90,6 @@ async def get_fsub_buttons(bot, user_id):
         buttons.append([InlineKeyboardButton(text=f"Join {title}", url=link)])
     
     return False, InlineKeyboardMarkup(buttons)
-
-# --- COMMANDS ---
 
 @app.on_message(filters.command("start"))
 async def start(bot, message):
@@ -135,13 +128,13 @@ async def added_to_group(bot, message):
                 "2. Use `/all` to tag everyone."
             )
 
-@app.on_message(filters.command("stats") & filters.user(owner_id))
+@app.on_message(filters.command("stats") & filters.user(owner_ids))
 async def stats(bot, message):
     users = await db.total_users_count()
     groups = await db.total_chat_count()
-    await message.reply_text(f"📊 **Bot Stats:**\n\n👤 Users: {users}\n👥 Groups: {groups}")
+    await message.reply_text(f"📊 **Bot Stats:**\n\n`{BOT_INFO}`\n\n👤 Users: {users}\n👥 Groups: {groups}")
 
-@app.on_message(filters.command(["broadcast", "gcast"]) & filters.user(owner_id))
+@app.on_message(filters.command(["broadcast", "gcast"]) & filters.user(owner_ids))
 async def broadcast(bot, message):
     if not message.reply_to_message:
         return await message.reply_text("Reply to a message to broadcast.")
@@ -189,8 +182,6 @@ async def tag_all(bot, message: Message):
     if message.chat.type not in [enums.ChatType.GROUP, enums.ChatType.SUPERGROUP]:
         return await message.reply_text("This command only works in groups.")
     
-    # --- Step 1: Bot Admin Check ---
-    # Agar Bot admin nahi hai to wo members fetch nahi kar payega
     try:
         bot_member = await bot.get_chat_member(message.chat.id, "me")
         if bot_member.status != enums.ChatMemberStatus.ADMINISTRATOR:
@@ -198,7 +189,6 @@ async def tag_all(bot, message: Message):
     except Exception as e:
         return await message.reply_text(f"Error checking permissions: {e}")
 
-    # --- Step 2: FSub Check ---
     if message.from_user:
         is_joined, buttons = await get_fsub_buttons(bot, message.from_user.id)
         if not is_joined:
@@ -212,23 +202,27 @@ async def tag_all(bot, message: Message):
     except:
         pass
 
-    # --- Step 3: User Admin Check ---
     if message.from_user:
         try:
             member = await bot.get_chat_member(message.chat.id, message.from_user.id)
-            if member.status not in [enums.ChatMemberStatus.ADMINISTRATOR, enums.ChatMemberStatus.OWNER]:
+            if member.status not in [enums.ChatMemberStatus.ADMINISTRATOR, enums.ChatMemberStatus.OWNER] and message.from_user.id not in owner_ids:
                 return await message.reply_text("🚫 **Admin Only!**\nYou need to be an Admin or Owner to use this command.")
         except:
             return
     
-    text = message.text.replace("/all", "").replace("@all", "").strip()
-    if not text: text = "Hi everyone!"
+    clean_text = message.text.replace("/all", "").replace("@all", "").strip()
+    
+    if clean_text:
+        text = clean_text
+    elif message.reply_to_message:
+        text = "**Check this out!** ☝️"
+    else:
+        text = "Hi everyone! 👋"
 
-    # Command Message Delete karne ka try karein
     try:
         await message.delete()
     except:
-        pass # Agar delete permission nahi hai to ignore karo
+        pass 
 
     mentions = []
     try:
@@ -262,6 +256,21 @@ async def tag_all(bot, message: Message):
         except Exception as e:
             print(f"Error sending batch: {e}")
 
+async def start_bot():
+    print("Bot Starting...")
+    await app.start()
+    
+    startup_msg = f"🚀 **Bot Started!**\n\nℹ️ `{BOT_INFO}`"
+    for owner in owner_ids:
+        try:
+            await app.send_message(owner, startup_msg)
+        except Exception as e:
+            print(f"Failed to send startup message to {owner}: {e}")
+        
+    await idle()
+    await app.stop()
+    print("Bot Stopped.")
+
 if __name__ == "__main__":
-    print("Bot Started...")
-    app.run()
+    loop = asyncio.get_event_loop()
+    loop.run_until_complete(start_bot())
