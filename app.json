@@ -4,7 +4,7 @@
   "keywords": ["telegram", "bot", "python", "pyrogram"],
   "stack": "container",
   "formation": {
-    "web": {
+    "worker": {
       "quantity": 1,
       "size": "Standard-2X"
     }
