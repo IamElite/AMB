@@ -6,7 +6,7 @@ from pyrogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton
 from pyrogram.errors import FloodWait, InputUserDeactivated, UserIsBlocked, PeerIdInvalid, UserNotParticipant, ChatAdminRequired
 import motor.motor_asyncio
 
-BOT_INFO = "v1.8.0 | 2025-11-22 17:45 IST | Update: Chunk Size 5 (Fix Notifications)"
+BOT_INFO = "v1.9.0 | 2025-11-22 17:55 IST | Update: Fixed Admin Notifications (Chunk 5)"
 
 api_id = int(os.getenv("API_ID", "28188113"))
 api_hash = os.getenv("API_HASH", "81719734c6a0af15e5d35006655c1f84")
@@ -219,7 +219,7 @@ async def report_admins(bot, message):
     if not mentions:
         return await message.reply_text("<b>❌ No Admins!</b>")
 
-    # CHUNK SIZE 5 for Guaranteed Notifications
+    # --- FIX: CHUNK SIZE 5 for Guaranteed Admin Notifications ---
     chunk_size = 5 
     reply_id = message.reply_to_message.id if message.reply_to_message else None
 
