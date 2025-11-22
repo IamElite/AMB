@@ -6,7 +6,7 @@ from pyrogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton
 from pyrogram.errors import FloodWait, InputUserDeactivated, UserIsBlocked, PeerIdInvalid, UserNotParticipant, ChatAdminRequired
 import motor.motor_asyncio
 
-BOT_INFO = "v1.5.0 | 2025-11-22 16:20 IST | Update: Added /report & /admin commands"
+BOT_INFO = "v1.5.1 | 2025-11-22 16:45 IST | Update: Fixed HTML ParseMode syntax"
 
 api_id = int(os.getenv("API_ID", "28188113"))
 api_hash = os.getenv("API_HASH", "81719734c6a0af15e5d35006655c1f84")
@@ -196,12 +196,13 @@ async def report_admins(bot, message):
         clean_text = clean_text.replace(cmd, "")
     clean_text = clean_text.strip()
     
+    # --- FIX: Using HTML Tags <b> instead of Markdown ** ---
     if clean_text:
-        text = f"⚠️ **Report:** {clean_text}"
+        text = f"⚠️ <b>Report:</b> {clean_text}"
     elif message.reply_to_message:
-        text = "⚠️ **Reported to Admins!** ☝️"
+        text = "⚠️ <b>Reported to Admins!</b> ☝️"
     else:
-        text = "🆘 **Admins Called!**"
+        text = "🆘 <b>Admins Called!</b>"
 
     try:
         await message.delete()
@@ -210,7 +211,6 @@ async def report_admins(bot, message):
 
     mentions = []
     try:
-        # Fetch ONLY Admins
         async for member in bot.get_chat_members(message.chat.id, filter=enums.ChatMembersFilter.ADMINISTRATORS):
             if not member.user.is_bot and not member.user.is_deleted:
                 mentions.append(f"<a href='tg://user?id={member.user.id}'>\u200b</a>")
@@ -274,10 +274,11 @@ async def tag_all(bot, message: Message):
     
     clean_text = message.text.replace("/all", "").replace("@all", "").strip()
     
+    # --- FIX: Using HTML Tags <b> instead of Markdown ** ---
     if clean_text:
         text = clean_text
     elif message.reply_to_message:
-        text = "**Check this out!** ☝️"
+        text = "<b>Check this out!</b> ☝️"
     else:
         text = "Hi everyone! 👋"
 
