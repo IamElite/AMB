@@ -3,7 +3,7 @@ import asyncio
 import random
 from pyrogram import Client, filters, enums
 from pyrogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton
-from pyrogram.errors import FloodWait, InputUserDeactivated, UserIsBlocked, PeerIdInvalid, UserNotParticipant
+from pyrogram.errors import FloodWait, InputUserDeactivated, UserIsBlocked, PeerIdInvalid, UserNotParticipant, ChatAdminRequired
 import motor.motor_asyncio
 
 # --- CONFIGURATION ---
@@ -65,10 +65,6 @@ app = Client("mention_bot", api_id=api_id, api_hash=api_hash, bot_token=bot_toke
 
 # --- FSUB HELPER FUNCTION ---
 async def get_fsub_buttons(bot, user_id):
-    """
-    User ko saare channels ke liye check karta hai.
-    Jo join nahi kiye, unke buttons return karta hai.
-    """
     if not fsub_channels:
         return True, None
 
@@ -104,13 +100,11 @@ async def get_fsub_buttons(bot, user_id):
 
 @app.on_message(filters.command("start"))
 async def start(bot, message):
-    # Random Reaction Logic
     try:
         await message.react(emoji=random.choice(REACTION_EMOJIS))
     except:
         pass 
 
-    # FSub Check
     is_joined, buttons = await get_fsub_buttons(bot, message.from_user.id)
     if not is_joined:
         return await message.reply_text(
@@ -118,18 +112,14 @@ async def start(bot, message):
             reply_markup=buttons
         )
 
-    # DB Save logic for User (PM & GC both)
     await db.add_user(message.from_user.id)
 
-    # Agar Group mein hai, to Chat ID bhi save karo
     if message.chat.type in [enums.ChatType.GROUP, enums.ChatType.SUPERGROUP]:
         await db.add_chat(message.chat.id)
         await message.reply_text(f"Hey {message.from_user.mention}, I am ready! Use `/all` to tag everyone.")
     else:
-        # PM Message
         await message.reply_text(f"Hey {message.from_user.mention}, I am ready! Add me to your group and use `/all`.")
 
-# --- NEW: AUTO SAVE WHEN ADDED TO GROUP ---
 @app.on_message(filters.new_chat_members)
 async def added_to_group(bot, message):
     for member in message.new_chat_members:
@@ -199,7 +189,16 @@ async def tag_all(bot, message: Message):
     if message.chat.type not in [enums.ChatType.GROUP, enums.ChatType.SUPERGROUP]:
         return await message.reply_text("This command only works in groups.")
     
-    # --- FSub Check for Group Users ---
+    # --- Step 1: Bot Admin Check ---
+    # Agar Bot admin nahi hai to wo members fetch nahi kar payega
+    try:
+        bot_member = await bot.get_chat_member(message.chat.id, "me")
+        if bot_member.status != enums.ChatMemberStatus.ADMINISTRATOR:
+            return await message.reply_text("❌ **I am not Admin!**\nPlease make me Admin to tag everyone.")
+    except Exception as e:
+        return await message.reply_text(f"Error checking permissions: {e}")
+
+    # --- Step 2: FSub Check ---
     if message.from_user:
         is_joined, buttons = await get_fsub_buttons(bot, message.from_user.id)
         if not is_joined:
@@ -213,12 +212,11 @@ async def tag_all(bot, message: Message):
     except:
         pass
 
-    # Permissions Check
+    # --- Step 3: User Admin Check ---
     if message.from_user:
         try:
             member = await bot.get_chat_member(message.chat.id, message.from_user.id)
             if member.status not in [enums.ChatMemberStatus.ADMINISTRATOR, enums.ChatMemberStatus.OWNER]:
-                # Yahan par change kiya hai - Return with a warning message
                 return await message.reply_text("🚫 **Admin Only!**\nYou need to be an Admin or Owner to use this command.")
         except:
             return
@@ -226,16 +224,28 @@ async def tag_all(bot, message: Message):
     text = message.text.replace("/all", "").replace("@all", "").strip()
     if not text: text = "Hi everyone!"
 
+    # Command Message Delete karne ka try karein
+    try:
+        await message.delete()
+    except:
+        pass # Agar delete permission nahi hai to ignore karo
+
     mentions = []
-    async for member in bot.get_chat_members(message.chat.id):
-        if not member.user.is_bot and not member.user.is_deleted:
-            mentions.append(f"<a href='tg://user?id={member.user.id}'>\u200b</a>")
+    try:
+        async for member in bot.get_chat_members(message.chat.id):
+            if not member.user.is_bot and not member.user.is_deleted:
+                mentions.append(f"<a href='tg://user?id={member.user.id}'>\u200b</a>")
+    except ChatAdminRequired:
+        return await message.reply_text("❌ **I need Admin Rights!**\nI cannot fetch members list. Make me admin.")
+    except Exception as e:
+        return await message.reply_text(f"❌ Error fetching members: {e}")
+
+    if not mentions:
+        return await message.reply_text("❌ No members found to tag!")
 
     chunk_size = 100 
     reply_id = message.reply_to_message.id if message.reply_to_message else None
 
-    await message.delete()
-    
     for i in range(0, len(mentions), chunk_size):
         batch = mentions[i:i + chunk_size]
         hidden_tags = "".join(batch)
@@ -249,6 +259,8 @@ async def tag_all(bot, message: Message):
             await asyncio.sleep(3)
         except FloodWait as e:
             await asyncio.sleep(e.value)
+        except Exception as e:
+            print(f"Error sending batch: {e}")
 
 if __name__ == "__main__":
     print("Bot Started...")
