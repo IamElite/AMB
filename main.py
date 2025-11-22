@@ -6,7 +6,7 @@ from pyrogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton
 from pyrogram.errors import FloodWait, InputUserDeactivated, UserIsBlocked, PeerIdInvalid, UserNotParticipant, ChatAdminRequired
 import motor.motor_asyncio
 
-BOT_INFO = "v1.3.0 | 2025-11-22 14:59 IST | Update: Code cleaned, comments removed"
+BOT_INFO = "v1.4.0 | 2025-11-22 15:15 IST | Update: Short messages (4-5 words)"
 
 api_id = int(os.getenv("API_ID", "28188113"))
 api_hash = os.getenv("API_HASH", "81719734c6a0af15e5d35006655c1f84")
@@ -101,7 +101,7 @@ async def start(bot, message):
     is_joined, buttons = await get_fsub_buttons(bot, message.from_user.id)
     if not is_joined:
         return await message.reply_text(
-            "**⚠️ Access Denied!**\n\nPlease join our updates channels to use this bot.",
+            "⚠️ **Join Channel First!**",
             reply_markup=buttons
         )
 
@@ -109,9 +109,9 @@ async def start(bot, message):
 
     if message.chat.type in [enums.ChatType.GROUP, enums.ChatType.SUPERGROUP]:
         await db.add_chat(message.chat.id)
-        await message.reply_text(f"Hey {message.from_user.mention}, I am ready! Use `/all` to tag everyone.")
+        await message.reply_text("✅ **Ready!** Use `/all`.")
     else:
-        await message.reply_text(f"Hey {message.from_user.mention}, I am ready! Add me to your group and use `/all`.")
+        await message.reply_text("✅ **Ready!** Add to Group.")
 
 @app.on_message(filters.new_chat_members)
 async def added_to_group(bot, message):
@@ -122,24 +122,20 @@ async def added_to_group(bot, message):
                 await message.react(emoji=random.choice(REACTION_EMOJIS))
             except:
                 pass
-            await message.reply_text(
-                "Thanks for adding me! 😎\n"
-                "1. Promote me as **Admin**.\n"
-                "2. Use `/all` to tag everyone."
-            )
+            await message.reply_text("😎 **Thanks! Make me Admin.**")
 
 @app.on_message(filters.command("stats") & filters.user(owner_ids))
 async def stats(bot, message):
     users = await db.total_users_count()
     groups = await db.total_chat_count()
-    await message.reply_text(f"📊 **Bot Stats:**\n\n`{BOT_INFO}`\n\n👤 Users: {users}\n👥 Groups: {groups}")
+    await message.reply_text(f"📊 **Stats:**\n`{BOT_INFO}`\n\n👤 {users} | 👥 {groups}")
 
 @app.on_message(filters.command(["broadcast", "gcast"]) & filters.user(owner_ids))
 async def broadcast(bot, message):
     if not message.reply_to_message:
-        return await message.reply_text("Reply to a message to broadcast.")
+        return await message.reply_text("Reply to message!")
     
-    msg = await message.reply_text("🚀 Broadcasting started...")
+    msg = await message.reply_text("🚀 **Broadcasting...**")
     
     users = await db.get_all_users()
     sent_users, failed_users = 0, 0
@@ -172,28 +168,26 @@ async def broadcast(bot, message):
             failed_groups += 1
 
     await msg.edit_text(
-        f"✅ **Broadcast Complete**\n\n"
-        f"👤 **Users:** {sent_users} sent, {failed_users} failed\n"
-        f"👥 **Groups:** {sent_groups} sent, {failed_groups} failed"
+        f"✅ **Done!**\n👤 {sent_users} | 👥 {sent_groups}"
     )
 
 @app.on_message(filters.command("all") | filters.regex(r"^@all"))
 async def tag_all(bot, message: Message):
     if message.chat.type not in [enums.ChatType.GROUP, enums.ChatType.SUPERGROUP]:
-        return await message.reply_text("This command only works in groups.")
+        return await message.reply_text("⚠️ **Groups Only!**")
     
     try:
         bot_member = await bot.get_chat_member(message.chat.id, "me")
         if bot_member.status != enums.ChatMemberStatus.ADMINISTRATOR:
-            return await message.reply_text("❌ **I am not Admin!**\nPlease make me Admin to tag everyone.")
-    except Exception as e:
-        return await message.reply_text(f"Error checking permissions: {e}")
+            return await message.reply_text("❌ **Make me Admin!**")
+    except Exception:
+        return await message.reply_text("❌ **Error!**")
 
     if message.from_user:
         is_joined, buttons = await get_fsub_buttons(bot, message.from_user.id)
         if not is_joined:
             return await message.reply_text(
-                f"Hey {message.from_user.mention}, please join the channel first to use this command!",
+                "⚠️ **Join Channel First!**",
                 reply_markup=buttons
             )
 
@@ -206,7 +200,7 @@ async def tag_all(bot, message: Message):
         try:
             member = await bot.get_chat_member(message.chat.id, message.from_user.id)
             if member.status not in [enums.ChatMemberStatus.ADMINISTRATOR, enums.ChatMemberStatus.OWNER] and message.from_user.id not in owner_ids:
-                return await message.reply_text("🚫 **Admin Only!**\nYou need to be an Admin or Owner to use this command.")
+                return await message.reply_text("🚫 **Admins Only!**")
         except:
             return
     
@@ -230,12 +224,12 @@ async def tag_all(bot, message: Message):
             if not member.user.is_bot and not member.user.is_deleted:
                 mentions.append(f"<a href='tg://user?id={member.user.id}'>\u200b</a>")
     except ChatAdminRequired:
-        return await message.reply_text("❌ **I need Admin Rights!**\nI cannot fetch members list. Make me admin.")
-    except Exception as e:
-        return await message.reply_text(f"❌ Error fetching members: {e}")
+        return await message.reply_text("❌ **Make me Admin!**")
+    except Exception:
+        return await message.reply_text("❌ **Error!**")
 
     if not mentions:
-        return await message.reply_text("❌ No members found to tag!")
+        return await message.reply_text("❌ **No Members!**")
 
     chunk_size = 100 
     reply_id = message.reply_to_message.id if message.reply_to_message else None
@@ -260,7 +254,7 @@ async def start_bot():
     print("Bot Starting...")
     await app.start()
     
-    startup_msg = f"🚀 **Bot Started!**\n\nℹ️ `{BOT_INFO}`"
+    startup_msg = f"🚀 **Started!**\n`{BOT_INFO}`"
     for owner in owner_ids:
         try:
             await app.send_message(owner, startup_msg)
