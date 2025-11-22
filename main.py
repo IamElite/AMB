@@ -6,13 +6,13 @@ from pyrogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton
 from pyrogram.errors import FloodWait, InputUserDeactivated, UserIsBlocked, PeerIdInvalid, UserNotParticipant, ChatAdminRequired
 import motor.motor_asyncio
 
-BOT_INFO = "v1.5.1 | 2025-11-22 16:45 IST | Update: Fixed HTML ParseMode syntax"
+BOT_INFO = "v1.7.0 | 2025-11-22 17:15 IST | Update: All tags converted to HTML"
 
 api_id = int(os.getenv("API_ID", "28188113"))
 api_hash = os.getenv("API_HASH", "81719734c6a0af15e5d35006655c1f84")
 bot_token = os.getenv("BOT_TOKEN", "8585167958:AAFfVSeMuMeQaX1nswKWLrVWzjwSgv2xrgc")
 mongo_url = os.getenv("MONGO_URL", "mongodb+srv://MentionMembers:MentionMembers@mentionmembers.yog0s3w.mongodb.net")
-owner_ids = [int(x) for x in os.getenv("OWNER_ID", "1679112664 7074383232").split()]
+owner_ids = [int(x) for x in os.getenv("OWNER_ID", "1679112664").split()]
 fsub_channels = [int(x) for x in os.getenv("FSUB_CHANNELS", "").split()]
 
 REACTION_EMOJIS = ["👍", "❤️", "🔥", "🥰", "👏", "😁", "🎉", "🤩", "👌"]
@@ -101,7 +101,7 @@ async def start(bot, message):
     is_joined, buttons = await get_fsub_buttons(bot, message.from_user.id)
     if not is_joined:
         return await message.reply_text(
-            "⚠️ **Join Channel First!**",
+            "<b>⚠️ Join Channel First!</b>",
             reply_markup=buttons
         )
 
@@ -109,9 +109,9 @@ async def start(bot, message):
 
     if message.chat.type in [enums.ChatType.GROUP, enums.ChatType.SUPERGROUP]:
         await db.add_chat(message.chat.id)
-        await message.reply_text("✅ **Ready!** Use `/all`.")
+        await message.reply_text("<b>✅ Ready!</b> Use /all.")
     else:
-        await message.reply_text("✅ **Ready!** Add to Group.")
+        await message.reply_text("<b>✅ Ready!</b> Add to Group.")
 
 @app.on_message(filters.new_chat_members)
 async def added_to_group(bot, message):
@@ -122,20 +122,20 @@ async def added_to_group(bot, message):
                 await message.react(emoji=random.choice(REACTION_EMOJIS))
             except:
                 pass
-            await message.reply_text("😎 **Thanks! Make me Admin.**")
+            await message.reply_text("<b>😎 Thanks! Make me Admin.</b>")
 
 @app.on_message(filters.command("stats") & filters.user(owner_ids))
 async def stats(bot, message):
     users = await db.total_users_count()
     groups = await db.total_chat_count()
-    await message.reply_text(f"📊 **Stats:**\n`{BOT_INFO}`\n\n👤 {users} | 👥 {groups}")
+    await message.reply_text(f"<b>📊 Stats:</b>\n<code>{BOT_INFO}</code>\n\n👤 {users} | 👥 {groups}")
 
 @app.on_message(filters.command(["broadcast", "gcast"]) & filters.user(owner_ids))
 async def broadcast(bot, message):
     if not message.reply_to_message:
         return await message.reply_text("Reply to message!")
     
-    msg = await message.reply_text("🚀 **Broadcasting...**")
+    msg = await message.reply_text("<b>🚀 Broadcasting...</b>")
     
     users = await db.get_all_users()
     sent_users, failed_users = 0, 0
@@ -168,20 +168,19 @@ async def broadcast(bot, message):
             failed_groups += 1
 
     await msg.edit_text(
-        f"✅ **Done!**\n👤 {sent_users} | 👥 {sent_groups}"
+        f"<b>✅ Done!</b>\n👤 {sent_users} | 👥 {sent_groups}"
     )
 
-# --- NEW: Report / Admin Command (For Everyone) ---
 @app.on_message(filters.command(["report", "admin"]) | filters.regex(r"^@report|^@admin"))
 async def report_admins(bot, message):
     if message.chat.type not in [enums.ChatType.GROUP, enums.ChatType.SUPERGROUP]:
-        return await message.reply_text("⚠️ **Groups Only!**")
+        return await message.reply_text("<b>⚠️ Groups Only!</b>")
     
     if message.from_user:
         is_joined, buttons = await get_fsub_buttons(bot, message.from_user.id)
         if not is_joined:
             return await message.reply_text(
-                "⚠️ **Join Channel First!**",
+                "<b>⚠️ Join Channel First!</b>",
                 reply_markup=buttons
             )
 
@@ -190,13 +189,11 @@ async def report_admins(bot, message):
     except:
         pass
     
-    # Text Clean up
     clean_text = message.text
     for cmd in ["/report", "@report", "/admin", "@admin"]:
         clean_text = clean_text.replace(cmd, "")
     clean_text = clean_text.strip()
     
-    # --- FIX: Using HTML Tags <b> instead of Markdown ** ---
     if clean_text:
         text = f"⚠️ <b>Report:</b> {clean_text}"
     elif message.reply_to_message:
@@ -215,10 +212,10 @@ async def report_admins(bot, message):
             if not member.user.is_bot and not member.user.is_deleted:
                 mentions.append(f"<a href='tg://user?id={member.user.id}'>\u200b</a>")
     except Exception:
-        return await message.reply_text("❌ **Error!**")
+        return await message.reply_text("<b>❌ Error!</b>")
 
     if not mentions:
-        return await message.reply_text("❌ **No Admins!**")
+        return await message.reply_text("<b>❌ No Admins!</b>")
 
     chunk_size = 100 
     reply_id = message.reply_to_message.id if message.reply_to_message else None
@@ -230,9 +227,20 @@ async def report_admins(bot, message):
         
         try:
             if reply_id:
-                await bot.send_message(message.chat.id, final_msg, reply_to_message_id=reply_id, parse_mode=enums.ParseMode.HTML)
+                await bot.send_message(
+                    message.chat.id, 
+                    final_msg, 
+                    reply_to_message_id=reply_id, 
+                    parse_mode=enums.ParseMode.HTML,
+                    disable_notification=False
+                )
             else:
-                await bot.send_message(message.chat.id, final_msg, parse_mode=enums.ParseMode.HTML)
+                await bot.send_message(
+                    message.chat.id, 
+                    final_msg, 
+                    parse_mode=enums.ParseMode.HTML,
+                    disable_notification=False
+                )
             await asyncio.sleep(3)
         except FloodWait as e:
             await asyncio.sleep(e.value)
@@ -242,20 +250,20 @@ async def report_admins(bot, message):
 @app.on_message(filters.command("all") | filters.regex(r"^@all"))
 async def tag_all(bot, message: Message):
     if message.chat.type not in [enums.ChatType.GROUP, enums.ChatType.SUPERGROUP]:
-        return await message.reply_text("⚠️ **Groups Only!**")
+        return await message.reply_text("<b>⚠️ Groups Only!</b>")
     
     try:
         bot_member = await bot.get_chat_member(message.chat.id, "me")
         if bot_member.status != enums.ChatMemberStatus.ADMINISTRATOR:
-            return await message.reply_text("❌ **Make me Admin!**")
+            return await message.reply_text("<b>❌ Make me Admin!</b>")
     except Exception:
-        return await message.reply_text("❌ **Error!**")
+        return await message.reply_text("<b>❌ Error!</b>")
 
     if message.from_user:
         is_joined, buttons = await get_fsub_buttons(bot, message.from_user.id)
         if not is_joined:
             return await message.reply_text(
-                "⚠️ **Join Channel First!**",
+                "<b>⚠️ Join Channel First!</b>",
                 reply_markup=buttons
             )
 
@@ -268,13 +276,12 @@ async def tag_all(bot, message: Message):
         try:
             member = await bot.get_chat_member(message.chat.id, message.from_user.id)
             if member.status not in [enums.ChatMemberStatus.ADMINISTRATOR, enums.ChatMemberStatus.OWNER] and message.from_user.id not in owner_ids:
-                return await message.reply_text("🚫 **Admins Only!**")
+                return await message.reply_text("<b>🚫 Admins Only!</b>")
         except:
             return
     
     clean_text = message.text.replace("/all", "").replace("@all", "").strip()
     
-    # --- FIX: Using HTML Tags <b> instead of Markdown ** ---
     if clean_text:
         text = clean_text
     elif message.reply_to_message:
@@ -293,12 +300,12 @@ async def tag_all(bot, message: Message):
             if not member.user.is_bot and not member.user.is_deleted:
                 mentions.append(f"<a href='tg://user?id={member.user.id}'>\u200b</a>")
     except ChatAdminRequired:
-        return await message.reply_text("❌ **Make me Admin!**")
+        return await message.reply_text("<b>❌ Make me Admin!</b>")
     except Exception:
-        return await message.reply_text("❌ **Error!**")
+        return await message.reply_text("<b>❌ Error!</b>")
 
     if not mentions:
-        return await message.reply_text("❌ **No Members!**")
+        return await message.reply_text("<b>❌ No Members!</b>")
 
     chunk_size = 100 
     reply_id = message.reply_to_message.id if message.reply_to_message else None
@@ -310,9 +317,20 @@ async def tag_all(bot, message: Message):
         
         try:
             if reply_id:
-                await bot.send_message(message.chat.id, final_msg, reply_to_message_id=reply_id, parse_mode=enums.ParseMode.HTML)
+                await bot.send_message(
+                    message.chat.id, 
+                    final_msg, 
+                    reply_to_message_id=reply_id, 
+                    parse_mode=enums.ParseMode.HTML,
+                    disable_notification=False
+                )
             else:
-                await bot.send_message(message.chat.id, final_msg, parse_mode=enums.ParseMode.HTML)
+                await bot.send_message(
+                    message.chat.id, 
+                    final_msg, 
+                    parse_mode=enums.ParseMode.HTML,
+                    disable_notification=False
+                )
             await asyncio.sleep(3)
         except FloodWait as e:
             await asyncio.sleep(e.value)
@@ -323,7 +341,7 @@ async def start_bot():
     print("Bot Starting...")
     await app.start()
     
-    startup_msg = f"🚀 **Started!**\n`{BOT_INFO}`"
+    startup_msg = f"<b>🚀 Started!</b>\n<code>{BOT_INFO}</code>"
     for owner in owner_ids:
         try:
             await app.send_message(owner, startup_msg)
