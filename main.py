@@ -6,11 +6,11 @@ from pyrogram.errors import FloodWait, InputUserDeactivated, UserIsBlocked
 import motor.motor_asyncio
 
 # --- CONFIGURATION (Env Vars se uthayega) ---
-API_ID = int(os.getenv("API_ID", "0"))
-API_HASH = os.getenv("API_HASH", "")
-BOT_TOKEN = os.getenv("BOT_TOKEN", "")
-MONGO_URL = os.getenv("MONGO_URL", "")
-OWNER_ID = int(os.getenv("OWNER_ID", "0"))
+API_ID = int(os.getenv("API_ID", "28188113"))
+API_HASH = os.getenv("API_HASH", "81719734c6a0af15e5d35006655c1f84")
+BOT_TOKEN = os.getenv("BOT_TOKEN", "8551333890:AAGYD3inPZw9UAYLu8DCuGhfTU41AyBuVv4")
+MONGO_URL = os.getenv("MONGO_URL", "mongodb+srv://ar:durgesh@ar.yqov3el.mongodb.net/?retryWrites=true&w=majority")
+OWNER_ID = int(os.getenv("OWNER_ID", "1679112664"))
 
 # --- MONGODB HELPER ---
 class Database:
