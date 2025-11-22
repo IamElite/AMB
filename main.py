@@ -6,7 +6,7 @@ from pyrogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton
 from pyrogram.errors import FloodWait, InputUserDeactivated, UserIsBlocked, PeerIdInvalid, UserNotParticipant, ChatAdminRequired
 import motor.motor_asyncio
 
-BOT_INFO = "v1.4.0 | 2025-11-22 15:15 IST | Update: Short messages (4-5 words)"
+BOT_INFO = "v1.5.0 | 2025-11-22 16:20 IST | Update: Added /report & /admin commands"
 
 api_id = int(os.getenv("API_ID", "28188113"))
 api_hash = os.getenv("API_HASH", "81719734c6a0af15e5d35006655c1f84")
@@ -170,6 +170,74 @@ async def broadcast(bot, message):
     await msg.edit_text(
         f"✅ **Done!**\n👤 {sent_users} | 👥 {sent_groups}"
     )
+
+# --- NEW: Report / Admin Command (For Everyone) ---
+@app.on_message(filters.command(["report", "admin"]) | filters.regex(r"^@report|^@admin"))
+async def report_admins(bot, message):
+    if message.chat.type not in [enums.ChatType.GROUP, enums.ChatType.SUPERGROUP]:
+        return await message.reply_text("⚠️ **Groups Only!**")
+    
+    if message.from_user:
+        is_joined, buttons = await get_fsub_buttons(bot, message.from_user.id)
+        if not is_joined:
+            return await message.reply_text(
+                "⚠️ **Join Channel First!**",
+                reply_markup=buttons
+            )
+
+    try:
+        await db.add_chat(message.chat.id)
+    except:
+        pass
+    
+    # Text Clean up
+    clean_text = message.text
+    for cmd in ["/report", "@report", "/admin", "@admin"]:
+        clean_text = clean_text.replace(cmd, "")
+    clean_text = clean_text.strip()
+    
+    if clean_text:
+        text = f"⚠️ **Report:** {clean_text}"
+    elif message.reply_to_message:
+        text = "⚠️ **Reported to Admins!** ☝️"
+    else:
+        text = "🆘 **Admins Called!**"
+
+    try:
+        await message.delete()
+    except:
+        pass 
+
+    mentions = []
+    try:
+        # Fetch ONLY Admins
+        async for member in bot.get_chat_members(message.chat.id, filter=enums.ChatMembersFilter.ADMINISTRATORS):
+            if not member.user.is_bot and not member.user.is_deleted:
+                mentions.append(f"<a href='tg://user?id={member.user.id}'>\u200b</a>")
+    except Exception:
+        return await message.reply_text("❌ **Error!**")
+
+    if not mentions:
+        return await message.reply_text("❌ **No Admins!**")
+
+    chunk_size = 100 
+    reply_id = message.reply_to_message.id if message.reply_to_message else None
+
+    for i in range(0, len(mentions), chunk_size):
+        batch = mentions[i:i + chunk_size]
+        hidden_tags = "".join(batch)
+        final_msg = f"{text}{hidden_tags}"
+        
+        try:
+            if reply_id:
+                await bot.send_message(message.chat.id, final_msg, reply_to_message_id=reply_id, parse_mode=enums.ParseMode.HTML)
+            else:
+                await bot.send_message(message.chat.id, final_msg, parse_mode=enums.ParseMode.HTML)
+            await asyncio.sleep(3)
+        except FloodWait as e:
+            await asyncio.sleep(e.value)
+        except Exception as e:
+            print(f"Error sending batch: {e}")
 
 @app.on_message(filters.command("all") | filters.regex(r"^@all"))
 async def tag_all(bot, message: Message):
