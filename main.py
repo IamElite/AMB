@@ -1,15 +1,12 @@
 import os
 import asyncio
 import random
-import string
 from pyrogram import Client, filters, enums, idle
 from pyrogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton
 from pyrogram.errors import FloodWait, InputUserDeactivated, UserIsBlocked, PeerIdInvalid, UserNotParticipant, ChatAdminRequired
 import motor.motor_asyncio
 
-# Generate a random Session ID to identify duplicate instances
-SESSION_ID = ''.join(random.choices(string.ascii_uppercase + string.digits, k=4))
-BOT_INFO = f"v2.6.0 | Session: {SESSION_ID} | Update: Visible Names + PM Fallback"
+BOT_INFO = "v2.2.0 | 2025-11-22 18:40 IST | Update: ZWNJ Char for reliable notifs"
 
 api_id = int(os.getenv("API_ID", "28188113"))
 api_hash = os.getenv("API_HASH", "81719734c6a0af15e5d35006655c1f84")
@@ -179,18 +176,19 @@ async def report_admins(bot, message):
     if message.chat.type not in [enums.ChatType.GROUP, enums.ChatType.SUPERGROUP]:
         return await message.reply_text("<b>⚠️ Groups Only!</b>")
     
-    # Check if user joined channel (Fsub)
     if message.from_user:
         is_joined, buttons = await get_fsub_buttons(bot, message.from_user.id)
         if not is_joined:
-            return await message.reply_text("<b>⚠️ Join Channel First!</b>", reply_markup=buttons)
+            return await message.reply_text(
+                "<b>⚠️ Join Channel First!</b>",
+                reply_markup=buttons
+            )
 
     try:
         await db.add_chat(message.chat.id)
     except:
         pass
     
-    # Cleanup text
     raw_text = message.text or message.caption or ""
     clean_text = raw_text
     for cmd in ["/report", "@report", "/admin", "@admin"]:
@@ -204,34 +202,27 @@ async def report_admins(bot, message):
     else:
         text = "🆘 <b>Admins Called!</b>"
 
-    try:
-        await message.react(emoji="👀")
-    except:
-        pass
-
-    # Fetch Admins
-    admins = []
+    mentions = []
     try:
         async for member in bot.get_chat_members(message.chat.id, filter=enums.ChatMembersFilter.ADMINISTRATORS):
             if not member.user.is_bot and not member.user.is_deleted:
-                admins.append(member.user)
+                # Using \u200c (Zero Width Non-Joiner) instead of \u200b
+                mentions.append(f"<a href='tg://user?id={member.user.id}'>\u200c</a>")
     except Exception:
         return await message.reply_text("<b>❌ Error!</b>")
 
-    if not admins:
+    if not mentions:
         return await message.reply_text("<b>❌ No Admins!</b>")
 
-    # --- LOGIC: Send 1 message per admin with Visible Name + Try PM ---
+    chunk_size = 1 # Keep 1 for admins to ensure reliable notification
     reply_id = message.id 
 
-    for admin in admins:
-        # Use Visible Name instead of invisible char for reliability
-        name = (admin.first_name or "Admin").replace("<", "&lt;").replace(">", "&gt;")
-        mention_link = f"<a href='tg://user?id={admin.id}'>{name}</a>"
-        final_msg = f"{text}\n👤 {mention_link}"
+    for i in range(0, len(mentions), chunk_size):
+        batch = mentions[i:i + chunk_size]
+        hidden_tags = "".join(batch)
+        final_msg = f"{text}{hidden_tags}"
         
         try:
-            # 1. Send in Group (Mention)
             await bot.send_message(
                 message.chat.id, 
                 final_msg, 
@@ -240,27 +231,17 @@ async def report_admins(bot, message):
                 disable_web_page_preview=True,
                 disable_notification=False
             )
-            
-            # 2. Try Sending PM (Fallback for muted groups)
-            # This will fail if user hasn't started bot, so we try/except it silently
-            try:
-                pm_text = f"⚠️ <b>Admin Alert!</b>\n\nGroup: {message.chat.title}\nReason: {clean_text if clean_text else 'Check Group'}"
-                await bot.send_message(admin.id, pm_text, parse_mode=enums.ParseMode.HTML)
-            except:
-                pass # User blocked bot or hasn't started it
-
             await asyncio.sleep(1)
         except FloodWait as e:
             await asyncio.sleep(e.value)
         except Exception as e:
-            print(f"Error notifying {name}: {e}")
+            print(f"Error sending batch: {e}")
 
 @app.on_message(filters.command("all") | filters.regex(r"^@all"))
 async def tag_all(bot, message: Message):
     if message.chat.type not in [enums.ChatType.GROUP, enums.ChatType.SUPERGROUP]:
         return await message.reply_text("<b>⚠️ Groups Only!</b>")
     
-    # Check Bot Admin
     try:
         bot_member = await bot.get_chat_member(message.chat.id, "me")
         if bot_member.status != enums.ChatMemberStatus.ADMINISTRATOR:
@@ -268,18 +249,19 @@ async def tag_all(bot, message: Message):
     except Exception:
         return await message.reply_text("<b>❌ Error!</b>")
 
-    # Check User Fsub
     if message.from_user:
         is_joined, buttons = await get_fsub_buttons(bot, message.from_user.id)
         if not is_joined:
-            return await message.reply_text("<b>⚠️ Join Channel First!</b>", reply_markup=buttons)
+            return await message.reply_text(
+                "<b>⚠️ Join Channel First!</b>",
+                reply_markup=buttons
+            )
 
     try:
         await db.add_chat(message.chat.id)
     except:
         pass
 
-    # Check User Admin Rights
     if message.from_user:
         try:
             member = await bot.get_chat_member(message.chat.id, message.from_user.id)
@@ -307,9 +289,8 @@ async def tag_all(bot, message: Message):
     try:
         async for member in bot.get_chat_members(message.chat.id):
             if not member.user.is_bot and not member.user.is_deleted:
-                # Use Visible First Name to prevent spam filtering of invisible chars
-                name = (member.user.first_name or "User").replace("<", "&lt;").replace(">", "&gt;")
-                mentions.append(f"<a href='tg://user?id={member.user.id}'>{name}</a>")
+                # Using \u200c (Zero Width Non-Joiner)
+                mentions.append(f"<a href='tg://user?id={member.user.id}'>\u200c</a>")
     except ChatAdminRequired:
         return await message.reply_text("<b>❌ Make me Admin!</b>")
     except Exception:
@@ -318,15 +299,13 @@ async def tag_all(bot, message: Message):
     if not mentions:
         return await message.reply_text("<b>❌ No Members!</b>")
 
-    # Chunk Size 5 for reliability
     chunk_size = 5 
     reply_id = message.reply_to_message.id if message.reply_to_message else None
 
     for i in range(0, len(mentions), chunk_size):
         batch = mentions[i:i + chunk_size]
-        # Join with comma for clean visible list
-        visible_tags = ", ".join(batch)
-        final_msg = f"{text}\n{visible_tags}"
+        hidden_tags = "".join(batch)
+        final_msg = f"{text}{hidden_tags}"
         
         try:
             if reply_id:
