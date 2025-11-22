@@ -6,7 +6,7 @@ from pyrogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton
 from pyrogram.errors import FloodWait, InputUserDeactivated, UserIsBlocked, PeerIdInvalid, UserNotParticipant, ChatAdminRequired
 import motor.motor_asyncio
 
-BOT_INFO = "v2.0.0 | 2025-11-22 18:00 IST | Update: Chunk 1 for Admins (Guaranteed Notify)"
+BOT_INFO = "v2.1.0 | 2025-11-22 18:15 IST | Update: Report cmd replies instead of deleting"
 
 api_id = int(os.getenv("API_ID", "28188113"))
 api_hash = os.getenv("API_HASH", "81719734c6a0af15e5d35006655c1f84")
@@ -179,6 +179,7 @@ async def report_admins(bot, message):
     if message.from_user:
         is_joined, buttons = await get_fsub_buttons(bot, message.from_user.id)
         if not is_joined:
+            # Agar FSub fail hota hai, to reply karo taki user dekhe
             return await message.reply_text(
                 "<b>⚠️ Join Channel First!</b>",
                 reply_markup=buttons
@@ -202,10 +203,11 @@ async def report_admins(bot, message):
     else:
         text = "🆘 <b>Admins Called!</b>"
 
-    try:
-        await message.delete()
-    except:
-        pass 
+    # --- CHANGE: DO NOT DELETE MESSAGE ---
+    # try:
+    #     await message.delete()
+    # except:
+    #     pass 
 
     mentions = []
     try:
@@ -218,11 +220,9 @@ async def report_admins(bot, message):
     if not mentions:
         return await message.reply_text("<b>❌ No Admins!</b>")
 
-    # --- ULTIMATE FIX: CHUNK SIZE 1 ---
-    # Admin Tagging ke liye 1 mention per message
-    # Isse notification 100% bajega.
-    chunk_size = 1
-    reply_id = message.reply_to_message.id if message.reply_to_message else None
+    chunk_size = 5
+    # --- CHANGE: ALWAYS REPLY TO THE COMMAND MESSAGE ---
+    reply_id = message.id 
 
     for i in range(0, len(mentions), chunk_size):
         batch = mentions[i:i + chunk_size]
@@ -230,23 +230,15 @@ async def report_admins(bot, message):
         final_msg = f"{text}{hidden_tags}"
         
         try:
-            if reply_id:
-                await bot.send_message(
-                    message.chat.id, 
-                    final_msg, 
-                    reply_to_message_id=reply_id, 
-                    parse_mode=enums.ParseMode.HTML,
-                    disable_notification=False
-                )
-            else:
-                await bot.send_message(
-                    message.chat.id, 
-                    final_msg, 
-                    parse_mode=enums.ParseMode.HTML,
-                    disable_notification=False
-                )
-            # Fast interval for admins
-            await asyncio.sleep(1)
+            # Always reply to the user's command
+            await bot.send_message(
+                message.chat.id, 
+                final_msg, 
+                reply_to_message_id=reply_id, 
+                parse_mode=enums.ParseMode.HTML,
+                disable_notification=False
+            )
+            await asyncio.sleep(2)
         except FloodWait as e:
             await asyncio.sleep(e.value)
         except Exception as e:
