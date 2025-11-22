@@ -6,7 +6,7 @@ from pyrogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton
 from pyrogram.errors import FloodWait, InputUserDeactivated, UserIsBlocked, PeerIdInvalid, UserNotParticipant, ChatAdminRequired
 import motor.motor_asyncio
 
-BOT_INFO = "v1.9.0 | 2025-11-22 17:55 IST | Update: Fixed Admin Notifications (Chunk 5)"
+BOT_INFO = "v2.0.0 | 2025-11-22 18:00 IST | Update: Fixed Admin Mention Notifications"
 
 api_id = int(os.getenv("API_ID", "28188113"))
 api_hash = os.getenv("API_HASH", "81719734c6a0af15e5d35006655c1f84")
@@ -189,7 +189,7 @@ async def report_admins(bot, message):
     except:
         pass
     
-    # Extract text from message or caption
+    # Extract text
     raw_text = message.text or message.caption or ""
     clean_text = raw_text
     for cmd in ["/report", "@report", "/admin", "@admin"]:
@@ -208,25 +208,33 @@ async def report_admins(bot, message):
     except:
         pass 
 
-    mentions = []
+    admin_data = []  # Store (user_object, invisible_mention)
     try:
         async for member in bot.get_chat_members(message.chat.id, filter=enums.ChatMembersFilter.ADMINISTRATORS):
             if not member.user.is_bot and not member.user.is_deleted:
-                mentions.append(f"<a href='tg://user?id={member.user.id}'>\u200b</a>")
+                invisible_tag = f"<a href='tg://user?id={member.user.id}'>\u200b</a>"
+                admin_data.append((member.user, invisible_tag))
     except Exception:
         return await message.reply_text("<b>❌ Error!</b>")
 
-    if not mentions:
+    if not admin_data:
         return await message.reply_text("<b>❌ No Admins!</b>")
 
-    # --- FIX: CHUNK SIZE 5 for Guaranteed Admin Notifications ---
-    chunk_size = 5 
+    # --- FIXED: Visible + Invisible Mentions for Guaranteed Notifications ---
+    chunk_size = 3  # 3-4 mentions per message for reliability
     reply_id = message.reply_to_message.id if message.reply_to_message else None
 
-    for i in range(0, len(mentions), chunk_size):
-        batch = mentions[i:i + chunk_size]
-        hidden_tags = "".join(batch)
-        final_msg = f"{text}{hidden_tags}"
+    for i in range(0, len(admin_data), chunk_size):
+        batch = admin_data[i:i + chunk_size]
+        
+        # Visible mentions (triggers notification reliably)
+        visible_mentions = " ".join([f"<a href='tg://user?id={user.id}'>{user.first_name}</a>" for user, _ in batch])
+        
+        # Invisible mentions as backup (placed in middle, not at start/end)
+        invisible_tags = "".join([tag for _, tag in batch])
+        
+        # Combine: text + visible mentions + invisible tags (not at end to avoid strip)
+        final_msg = f"{text}\n\n{visible_mentions}{invisible_tags} "
         
         try:
             if reply_id:
@@ -244,7 +252,7 @@ async def report_admins(bot, message):
                     parse_mode=enums.ParseMode.HTML,
                     disable_notification=False
                 )
-            await asyncio.sleep(2)
+            await asyncio.sleep(3)  # 3 sec delay for better delivery
         except FloodWait as e:
             await asyncio.sleep(e.value)
         except Exception as e:
@@ -283,7 +291,7 @@ async def tag_all(bot, message: Message):
         except:
             return
     
-    # Extract text from message or caption
+    # Extract text
     raw_text = message.text or message.caption or ""
     clean_text = raw_text.replace("/all", "").replace("@all", "").strip()
     
@@ -299,27 +307,32 @@ async def tag_all(bot, message: Message):
     except:
         pass 
 
-    mentions = []
+    member_data = []  # Store (user_object, invisible_mention)
     try:
         async for member in bot.get_chat_members(message.chat.id):
             if not member.user.is_bot and not member.user.is_deleted:
-                mentions.append(f"<a href='tg://user?id={member.user.id}'>\u200b</a>")
+                invisible_tag = f"<a href='tg://user?id={member.user.id}'>\u200b</a>"
+                member_data.append((member.user, invisible_tag))
     except ChatAdminRequired:
         return await message.reply_text("<b>❌ Make me Admin!</b>")
     except Exception:
         return await message.reply_text("<b>❌ Error!</b>")
 
-    if not mentions:
+    if not member_data:
         return await message.reply_text("<b>❌ No Members!</b>")
 
-    # CHUNK SIZE 5 for Guaranteed Notifications
-    chunk_size = 5 
+    # CHUNK SIZE 4 for /all (zyada members hain toh thoda bada chunk)
+    chunk_size = 4
     reply_id = message.reply_to_message.id if message.reply_to_message else None
 
-    for i in range(0, len(mentions), chunk_size):
-        batch = mentions[i:i + chunk_size]
-        hidden_tags = "".join(batch)
-        final_msg = f"{text}{hidden_tags}"
+    for i in range(0, len(member_data), chunk_size):
+        batch = member_data[i:i + chunk_size]
+        
+        # Invisible mentions only (for /all, visible mention spam avoid karne ke liye)
+        invisible_tags = "".join([tag for _, tag in batch])
+        
+        # Add space at end to prevent stripping
+        final_msg = f"{text}{invisible_tags} "
         
         try:
             if reply_id:
@@ -337,7 +350,7 @@ async def tag_all(bot, message: Message):
                     parse_mode=enums.ParseMode.HTML,
                     disable_notification=False
                 )
-            await asyncio.sleep(2)
+            await asyncio.sleep(3)
         except FloodWait as e:
             await asyncio.sleep(e.value)
         except Exception as e:
