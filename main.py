@@ -1,12 +1,15 @@
 import os
 import asyncio
 import random
+import string
 from pyrogram import Client, filters, enums, idle
 from pyrogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton
 from pyrogram.errors import FloodWait, InputUserDeactivated, UserIsBlocked, PeerIdInvalid, UserNotParticipant, ChatAdminRequired
 import motor.motor_asyncio
 
-BOT_INFO = "v2.3.0 | 2025-11-22 19:00 IST | Update: Using \\u2063 char for Notifications"
+# Generate a random Session ID to identify duplicate instances
+SESSION_ID = ''.join(random.choices(string.ascii_uppercase + string.digits, k=4))
+BOT_INFO = f"v2.4.0 | Session: {SESSION_ID} | Chunk: 6"
 
 api_id = int(os.getenv("API_ID", "28188113"))
 api_hash = os.getenv("API_HASH", "81719734c6a0af15e5d35006655c1f84")
@@ -207,7 +210,6 @@ async def report_admins(bot, message):
     try:
         async for member in bot.get_chat_members(message.chat.id, filter=enums.ChatMembersFilter.ADMINISTRATORS):
             if not member.user.is_bot and not member.user.is_deleted:
-                # Using \u2063 (Invisible Separator) - MOST RELIABLE for Notifications
                 mentions.append(f"<a href='tg://user?id={member.user.id}'>\u2063</a>")
     except Exception:
         return await message.reply_text("<b>❌ Error!</b>")
@@ -215,7 +217,8 @@ async def report_admins(bot, message):
     if not mentions:
         return await message.reply_text("<b>❌ No Admins!</b>")
 
-    chunk_size = 5
+    # CHUNK SIZE 6 for Admins
+    chunk_size = 6
     reply_id = message.id 
 
     for i in range(0, len(mentions), chunk_size):
@@ -290,7 +293,6 @@ async def tag_all(bot, message: Message):
     try:
         async for member in bot.get_chat_members(message.chat.id):
             if not member.user.is_bot and not member.user.is_deleted:
-                # Using \u2063 (Invisible Separator)
                 mentions.append(f"<a href='tg://user?id={member.user.id}'>\u2063</a>")
     except ChatAdminRequired:
         return await message.reply_text("<b>❌ Make me Admin!</b>")
@@ -300,7 +302,8 @@ async def tag_all(bot, message: Message):
     if not mentions:
         return await message.reply_text("<b>❌ No Members!</b>")
 
-    chunk_size = 5 
+    # CHUNK SIZE 6 to reduce number of messages in medium groups
+    chunk_size = 6
     reply_id = message.reply_to_message.id if message.reply_to_message else None
 
     for i in range(0, len(mentions), chunk_size):
