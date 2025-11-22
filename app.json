@@ -1,0 +1,24 @@
+{
+  "name": "Mention Bot",
+  "description": "A simple Telegram group mention bot with stats and broadcast.",
+  "keywords": ["telegram", "bot", "python", "pyrogram"],
+  "stack": "container",
+  "formation": {
+    "web": {
+      "quantity": 1,
+      "size": "Standard-2X"
+    }
+  },
+  "env": {
+    "UPSTREAM_REPO": {
+      "description": "GitHub repository URL",
+      "value": "https://github.com/IamElite/AMB",
+      "required": false
+    },
+    "UPSTREAM_BRANCH": {
+      "description": "GitHub branch name",
+      "value": "main",
+      "required": false
+    }
+  }
+}
