@@ -6,7 +6,7 @@ from pyrogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton
 from pyrogram.errors import FloodWait, InputUserDeactivated, UserIsBlocked, PeerIdInvalid, UserNotParticipant, ChatAdminRequired
 import motor.motor_asyncio
 
-BOT_INFO = "v1.7.0 | 2025-11-22 17:15 IST | Update: All tags converted to HTML"
+BOT_INFO = "v1.8.0 | 2025-11-22 17:45 IST | Update: Chunk Size 5 (Fix Notifications)"
 
 api_id = int(os.getenv("API_ID", "28188113"))
 api_hash = os.getenv("API_HASH", "81719734c6a0af15e5d35006655c1f84")
@@ -189,7 +189,9 @@ async def report_admins(bot, message):
     except:
         pass
     
-    clean_text = message.text
+    # Extract text from message or caption
+    raw_text = message.text or message.caption or ""
+    clean_text = raw_text
     for cmd in ["/report", "@report", "/admin", "@admin"]:
         clean_text = clean_text.replace(cmd, "")
     clean_text = clean_text.strip()
@@ -217,7 +219,8 @@ async def report_admins(bot, message):
     if not mentions:
         return await message.reply_text("<b>❌ No Admins!</b>")
 
-    chunk_size = 100 
+    # CHUNK SIZE 5 for Guaranteed Notifications
+    chunk_size = 5 
     reply_id = message.reply_to_message.id if message.reply_to_message else None
 
     for i in range(0, len(mentions), chunk_size):
@@ -241,7 +244,7 @@ async def report_admins(bot, message):
                     parse_mode=enums.ParseMode.HTML,
                     disable_notification=False
                 )
-            await asyncio.sleep(3)
+            await asyncio.sleep(2)
         except FloodWait as e:
             await asyncio.sleep(e.value)
         except Exception as e:
@@ -280,7 +283,9 @@ async def tag_all(bot, message: Message):
         except:
             return
     
-    clean_text = message.text.replace("/all", "").replace("@all", "").strip()
+    # Extract text from message or caption
+    raw_text = message.text or message.caption or ""
+    clean_text = raw_text.replace("/all", "").replace("@all", "").strip()
     
     if clean_text:
         text = clean_text
@@ -307,7 +312,8 @@ async def tag_all(bot, message: Message):
     if not mentions:
         return await message.reply_text("<b>❌ No Members!</b>")
 
-    chunk_size = 100 
+    # CHUNK SIZE 5 for Guaranteed Notifications
+    chunk_size = 5 
     reply_id = message.reply_to_message.id if message.reply_to_message else None
 
     for i in range(0, len(mentions), chunk_size):
@@ -331,7 +337,7 @@ async def tag_all(bot, message: Message):
                     parse_mode=enums.ParseMode.HTML,
                     disable_notification=False
                 )
-            await asyncio.sleep(3)
+            await asyncio.sleep(2)
         except FloodWait as e:
             await asyncio.sleep(e.value)
         except Exception as e:
