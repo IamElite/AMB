@@ -9,7 +9,7 @@ import motor.motor_asyncio
 
 # Generate a random Session ID to identify duplicate instances
 SESSION_ID = ''.join(random.choices(string.ascii_uppercase + string.digits, k=4))
-BOT_INFO = f"v2.4.0 | Session: {SESSION_ID} | Chunk: 6"
+BOT_INFO = f"v2.5.0 | Session: {SESSION_ID} | Logic: Reverted to v2.2.0 (Chunk 1)"
 
 api_id = int(os.getenv("API_ID", "28188113"))
 api_hash = os.getenv("API_HASH", "81719734c6a0af15e5d35006655c1f84")
@@ -188,11 +188,11 @@ async def report_admins(bot, message):
             )
 
     try:
-        await message.react(emoji="👀")
         await db.add_chat(message.chat.id)
     except:
         pass
     
+    # Cleanup text
     raw_text = message.text or message.caption or ""
     clean_text = raw_text
     for cmd in ["/report", "@report", "/admin", "@admin"]:
@@ -206,10 +206,16 @@ async def report_admins(bot, message):
     else:
         text = "🆘 <b>Admins Called!</b>"
 
+    try:
+        await message.react(emoji="👀")
+    except:
+        pass
+
     mentions = []
     try:
         async for member in bot.get_chat_members(message.chat.id, filter=enums.ChatMembersFilter.ADMINISTRATORS):
             if not member.user.is_bot and not member.user.is_deleted:
+                # Using \u2063 (Invisible Separator)
                 mentions.append(f"<a href='tg://user?id={member.user.id}'>\u2063</a>")
     except Exception:
         return await message.reply_text("<b>❌ Error!</b>")
@@ -217,8 +223,8 @@ async def report_admins(bot, message):
     if not mentions:
         return await message.reply_text("<b>❌ No Admins!</b>")
 
-    # CHUNK SIZE 6 for Admins
-    chunk_size = 6
+    # CHUNK SIZE 1: Guaranteed Notification for Admins
+    chunk_size = 1
     reply_id = message.id 
 
     for i in range(0, len(mentions), chunk_size):
@@ -293,6 +299,7 @@ async def tag_all(bot, message: Message):
     try:
         async for member in bot.get_chat_members(message.chat.id):
             if not member.user.is_bot and not member.user.is_deleted:
+                # Using \u2063 (Invisible Separator)
                 mentions.append(f"<a href='tg://user?id={member.user.id}'>\u2063</a>")
     except ChatAdminRequired:
         return await message.reply_text("<b>❌ Make me Admin!</b>")
@@ -302,8 +309,8 @@ async def tag_all(bot, message: Message):
     if not mentions:
         return await message.reply_text("<b>❌ No Members!</b>")
 
-    # CHUNK SIZE 6 to reduce number of messages in medium groups
-    chunk_size = 6
+    # CHUNK SIZE 5: Standard for Groups
+    chunk_size = 5 
     reply_id = message.reply_to_message.id if message.reply_to_message else None
 
     for i in range(0, len(mentions), chunk_size):
