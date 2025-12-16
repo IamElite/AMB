@@ -171,7 +171,6 @@ async def broadcast(bot, message):
         f"**✅ Done!**\n👤 {sent_users} | 👥 {sent_groups}"
     )
 
-
 @app.on_message(filters.command(["report", "admin"]) | filters.regex(r"^@report|^@admin"))
 async def report_admins(bot, message):
     if message.chat.type not in [enums.ChatType.GROUP, enums.ChatType.SUPERGROUP]:
@@ -207,7 +206,7 @@ async def report_admins(bot, message):
     try:
         async for member in bot.get_chat_members(message.chat.id, filter=enums.ChatMembersFilter.ADMINISTRATORS):
             if not member.user.is_bot and not member.user.is_deleted:
-                admins_list.append(member.user)
+                admins_list.append(member.user.id)
     except Exception:
         return await message.reply_text("**❌ Error!**")
 
@@ -215,10 +214,10 @@ async def report_admins(bot, message):
         return await message.reply_text("**❌ No Admins!**")
 
     mentions = []
-    for admin in admins_list:
-        mentions.append(f'<a href="tg://user?id={admin.id}">⁣</a>')
+    for admin_id in admins_list:
+        mentions.append(f'<a href="tg://user?id={admin_id}">&#8288;</a>')
     
-    mention_text = " ".join(mentions)
+    mention_text = "".join(mentions)
     final_msg = f"{text} {mention_text}"
     
     try:
@@ -227,14 +226,10 @@ async def report_admins(bot, message):
             final_msg, 
             reply_to_message_id=message.id, 
             parse_mode=enums.ParseMode.HTML,
-            disable_web_page_preview=True,
-            disable_notification=False
+            disable_web_page_preview=True
         )
-    except FloodWait as e:
-        await asyncio.sleep(e.value)
     except Exception as e:
         print(f"Error: {e}")
-
 
 @app.on_message(filters.command("all") | filters.regex(r"^@all"))
 async def tag_all(bot, message: Message):
@@ -321,16 +316,14 @@ async def tag_all(bot, message: Message):
                     final_msg, 
                     reply_to_message_id=reply_id, 
                     parse_mode=enums.ParseMode.MARKDOWN,
-                    disable_web_page_preview=True,
-                    disable_notification=False
+                    disable_web_page_preview=True
                 )
             else:
                 await bot.send_message(
                     message.chat.id, 
                     final_msg, 
                     parse_mode=enums.ParseMode.MARKDOWN,
-                    disable_web_page_preview=True,
-                    disable_notification=False
+                    disable_web_page_preview=True
                 )
             await asyncio.sleep(2)
         except FloodWait as e:
