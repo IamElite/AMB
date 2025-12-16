@@ -171,7 +171,7 @@ async def broadcast(bot, message):
         f"**✅ Done!**\n👤 {sent_users} | 👥 {sent_groups}"
     )
 
-@app.on_message(filters.command(["report", "admin"]) | filters.regex(r"^@report|^@admin"))
+@app.on_message(filters.command(["report", "admin"]))
 async def report_admins(bot, message):
     if message.chat.type not in [enums.ChatType.GROUP, enums.ChatType.SUPERGROUP]:
         return await message.reply_text("**⚠️ Groups Only!**")
@@ -191,7 +191,7 @@ async def report_admins(bot, message):
     
     raw_text = message.text or message.caption or ""
     clean_text = raw_text
-    for cmd in ["/report", "@report", "/admin", "@admin"]:
+    for cmd in ["/report", "/admin"]:
         clean_text = clean_text.replace(cmd, "")
     clean_text = clean_text.strip()
     
@@ -213,12 +213,8 @@ async def report_admins(bot, message):
     if not admins_list:
         return await message.reply_text("**❌ No Admins!**")
 
-    mentions = []
-    for admin_id in admins_list:
-        mentions.append(f'<a href="tg://user?id={admin_id}">&#8288;</a>')
-    
-    mention_text = "".join(mentions)
-    final_msg = f"{text} {mention_text}"
+    all_mentions = "".join([f'<a href="tg://user?id={admin_id}">&#8288;</a>' for admin_id in admins_list])
+    final_msg = f"{text} {all_mentions}"
     
     try:
         await bot.send_message(
@@ -229,9 +225,9 @@ async def report_admins(bot, message):
             disable_web_page_preview=True
         )
     except Exception as e:
-        print(f"Error: {e}")
+        print(f"Report Error: {e}")
 
-@app.on_message(filters.command("all") | filters.regex(r"^@all"))
+@app.on_message(filters.command("all"))
 async def tag_all(bot, message: Message):
     if message.chat.type not in [enums.ChatType.GROUP, enums.ChatType.SUPERGROUP]:
         return await message.reply_text("**⚠️ Groups Only!**")
@@ -265,7 +261,7 @@ async def tag_all(bot, message: Message):
             return
     
     raw_text = message.text or message.caption or ""
-    clean_text = raw_text.replace("/all", "").replace("@all", "").strip()
+    clean_text = raw_text.replace("/all", "").strip()
     
     if clean_text:
         text = clean_text
