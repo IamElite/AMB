@@ -5,6 +5,7 @@ from pyrogram import Client, filters, enums, idle
 from pyrogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton
 from pyrogram.errors import FloodWait, InputUserDeactivated, UserIsBlocked, PeerIdInvalid, UserNotParticipant, ChatAdminRequired
 import motor.motor_asyncio
+from datetime import datetime
 
 BOT_INFO = "v2.3.0 | Ghost Tag Mode | Markdown Style"
 
@@ -16,8 +17,6 @@ owner_ids = [int(x) for x in os.getenv("OWNER_ID", "1679112664").split()]
 fsub_channels = [int(x) for x in os.getenv("FSUB_CHANNELS", "").split()]
 
 REACTION_EMOJIS = ["👍", "❤️", "🔥", "🥰", "👏", "😁", "🎉", "🤩", "👌"]
-
-processed_messages = set()
 
 class Database:
     def __init__(self, uri, database_name):
@@ -173,17 +172,27 @@ async def broadcast(bot, message):
         f"**✅ Done!**\n👤 {sent_users} | 👥 {sent_groups}"
     )
 
-@app.on_message(filters.command(["report", "admin"]))
+report_lock = {}
+
+@app.on_message(filters.command(["report", "admin"]), group=1)
 async def report_admins(bot, message):
-    msg_key = f"{message.chat.id}:{message.id}"
+    msg_id = message.id
+    chat_id = message.chat.id
     
-    if msg_key in processed_messages:
+    print(f"[DEBUG] Report triggered - Chat: {chat_id}, Msg: {msg_id}, Time: {datetime.now()}")
+    
+    if msg_id in report_lock.get(chat_id, []):
+        print(f"[DEBUG] DUPLICATE BLOCKED - Chat: {chat_id}, Msg: {msg_id}")
         return
     
-    processed_messages.add(msg_key)
+    if chat_id not in report_lock:
+        report_lock[chat_id] = []
+    report_lock[chat_id].append(msg_id)
     
-    if len(processed_messages) > 1000:
-        processed_messages.clear()
+    if len(report_lock[chat_id]) > 50:
+        report_lock[chat_id] = report_lock[chat_id][-50:]
+    
+    print(f"[DEBUG] Processing report - Chat: {chat_id}, Msg: {msg_id}")
     
     if message.chat.type not in [enums.ChatType.GROUP, enums.ChatType.SUPERGROUP]:
         return await message.reply_text("**⚠️ Groups Only!**")
@@ -219,7 +228,8 @@ async def report_admins(bot, message):
         async for member in bot.get_chat_members(message.chat.id, filter=enums.ChatMembersFilter.ADMINISTRATORS):
             if not member.user.is_bot and not member.user.is_deleted:
                 admins_list.append(member.user.id)
-    except Exception:
+    except Exception as e:
+        print(f"[DEBUG] Error getting admins: {e}")
         return await message.reply_text("**❌ Error!**")
 
     if not admins_list:
@@ -227,6 +237,8 @@ async def report_admins(bot, message):
 
     all_mentions = "".join([f'<a href="tg://user?id={admin_id}">&#8288;</a>' for admin_id in admins_list])
     final_msg = f"{text} {all_mentions}"
+    
+    print(f"[DEBUG] Sending message - Chat: {chat_id}, Admins: {len(admins_list)}")
     
     try:
         await bot.send_message(
@@ -236,21 +248,12 @@ async def report_admins(bot, message):
             parse_mode=enums.ParseMode.HTML,
             disable_web_page_preview=True
         )
+        print(f"[DEBUG] Message sent successfully - Chat: {chat_id}")
     except Exception as e:
-        print(f"Report Error: {e}")
+        print(f"[DEBUG] Send error: {e}")
 
-@app.on_message(filters.command("all"))
+@app.on_message(filters.command("all"), group=1)
 async def tag_all(bot, message: Message):
-    msg_key = f"{message.chat.id}:{message.id}"
-    
-    if msg_key in processed_messages:
-        return
-    
-    processed_messages.add(msg_key)
-    
-    if len(processed_messages) > 1000:
-        processed_messages.clear()
-    
     if message.chat.type not in [enums.ChatType.GROUP, enums.ChatType.SUPERGROUP]:
         return await message.reply_text("**⚠️ Groups Only!**")
     
