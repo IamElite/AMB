@@ -124,8 +124,13 @@ async def report_admins(bot, message):
         message.chat.id,
         filter=enums.ChatMembersFilter.ADMINISTRATORS
     ):
-        if not member.user.is_bot and not member.user.is_deleted:
+        if (
+            member.status in [enums.ChatMemberStatus.ADMINISTRATOR, enums.ChatMemberStatus.OWNER]
+            and not member.user.is_bot
+            and not member.user.is_deleted
+        ):
             admins.append(member.user.id)
+
 
     if not admins:
         return await message.reply_text("**❌ No Admins Found!**")
@@ -157,7 +162,15 @@ async def tag_all(bot, message: Message):
     if member.status not in [enums.ChatMemberStatus.ADMINISTRATOR, enums.ChatMemberStatus.OWNER] and message.from_user.id not in owner_ids:
         return await message.reply_text("**🚫 Admins Only!**")
 
-    text = message.text.replace("/all", "").strip() or "Hi everyone! 👋"
+    raw_text = message.text or ""
+    clean_text = raw_text.replace("/all", "").strip()
+    
+    if clean_text:
+        text = clean_text
+    elif message.reply_to_message:
+        text = "**Check this out!** ☝️"
+    else:
+        text = "Hi everyone! 👋"
 
     try:
         await message.delete()
