@@ -219,7 +219,7 @@ async def report_admins(bot, message):
         mentions.append(f'<a href="tg://user?id={admin.id}">⁣</a>')
     
     mention_text = "".join(mentions)
-    final_msg = f"{text}\n{mention_text}👮"
+    final_msg = f"{text}{mention_text}."
     
     try:
         await bot.send_message(
