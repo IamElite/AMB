@@ -171,6 +171,7 @@ async def broadcast(bot, message):
         f"**✅ Done!**\n👤 {sent_users} | 👥 {sent_groups}"
     )
 
+
 @app.on_message(filters.command(["report", "admin"]) | filters.regex(r"^@report|^@admin"))
 async def report_admins(bot, message):
     if message.chat.type not in [enums.ChatType.GROUP, enums.ChatType.SUPERGROUP]:
@@ -196,46 +197,45 @@ async def report_admins(bot, message):
     clean_text = clean_text.strip()
     
     if clean_text:
-        text = f"⚠️ **Report:** {clean_text}"
+        text = f"⚠️ <b>Report:</b> {clean_text}"
     elif message.reply_to_message:
-        text = "⚠️ **Reported to Admins!** ☝️"
+        text = "⚠️ <b>Reported to Admins!</b> ☝️"
     else:
-        text = "🆘 **Admins Called!**"
+        text = "🆘 <b>Admins Called!</b>"
 
-    mentions = []
+    admins_list = []
     try:
         async for member in bot.get_chat_members(message.chat.id, filter=enums.ChatMembersFilter.ADMINISTRATORS):
             if not member.user.is_bot and not member.user.is_deleted:
-                mentions.append(f"[\u200b](tg://user?id={member.user.id})")
+                admins_list.append(member.user)
     except Exception:
         return await message.reply_text("**❌ Error!**")
 
-    if not mentions:
+    if not admins_list:
         return await message.reply_text("**❌ No Admins!**")
 
-    chunk_size = 3
-    reply_id = message.id 
+    mentions = []
+    for admin in admins_list:
+        name = admin.first_name
+        mentions.append(f'<a href="tg://user?id={admin.id}">{name}</a>')
+    
+    mention_text = ", ".join(mentions)
+    final_msg = f"{text}\n\n👥 {mention_text}"
+    
+    try:
+        await bot.send_message(
+            message.chat.id, 
+            final_msg, 
+            reply_to_message_id=message.id, 
+            parse_mode=enums.ParseMode.HTML,
+            disable_web_page_preview=True,
+            disable_notification=False
+        )
+    except FloodWait as e:
+        await asyncio.sleep(e.value)
+    except Exception as e:
+        print(f"Error: {e}")
 
-    for i in range(0, len(mentions), chunk_size):
-        batch = mentions[i:i + chunk_size]
-        hidden_tags = "".join(batch)
-        
-        final_msg = f"{text}\n{hidden_tags}\u200b"
-        
-        try:
-            await bot.send_message(
-                message.chat.id, 
-                final_msg, 
-                reply_to_message_id=reply_id, 
-                parse_mode=enums.ParseMode.MARKDOWN,
-                disable_web_page_preview=True,
-                disable_notification=False
-            )
-            await asyncio.sleep(1)
-        except FloodWait as e:
-            await asyncio.sleep(e.value)
-        except Exception as e:
-            print(f"Error sending batch: {e}")
 
 
 @app.on_message(filters.command("all") | filters.regex(r"^@all"))
