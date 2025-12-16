@@ -213,22 +213,14 @@ async def report_admins(bot, message):
     if not mentions:
         return await message.reply_text("**❌ No Admins!**")
 
-    chunk_size = 1 
+    chunk_size = 3
     reply_id = message.id 
 
     for i in range(0, len(mentions), chunk_size):
         batch = mentions[i:i + chunk_size]
         hidden_tags = "".join(batch)
         
-        words = text.split()
-        mid_point = len(words) // 2
-        
-        if len(words) > 1:
-            part1 = " ".join(words[:mid_point])
-            part2 = " ".join(words[mid_point:])
-            final_msg = f"{part1} {hidden_tags} {part2}"
-        else:
-            final_msg = f"{text} {hidden_tags} "
+        final_msg = f"{text}\n{hidden_tags}\u200b"
         
         try:
             await bot.send_message(
@@ -244,6 +236,7 @@ async def report_admins(bot, message):
             await asyncio.sleep(e.value)
         except Exception as e:
             print(f"Error sending batch: {e}")
+
 
 @app.on_message(filters.command("all") | filters.regex(r"^@all"))
 async def tag_all(bot, message: Message):
