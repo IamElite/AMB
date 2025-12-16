@@ -6,7 +6,6 @@ from pyrogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton
 from pyrogram.errors import FloodWait, InputUserDeactivated, UserIsBlocked, PeerIdInvalid, UserNotParticipant, ChatAdminRequired
 import motor.motor_asyncio
 
-# --- CONFIGURATION ---
 BOT_INFO = "v2.3.0 | Ghost Tag Mode | Markdown Style"
 
 api_id = int(os.getenv("API_ID", "28188113"))
@@ -18,7 +17,6 @@ fsub_channels = [int(x) for x in os.getenv("FSUB_CHANNELS", "").split()]
 
 REACTION_EMOJIS = ["👍", "❤️", "🔥", "🥰", "👏", "😁", "🎉", "🤩", "👌"]
 
-# --- DATABASE CLASS ---
 class Database:
     def __init__(self, uri, database_name):
         self._client = motor.motor_asyncio.AsyncIOMotorClient(uri)
@@ -58,11 +56,9 @@ class Database:
     async def delete_chat(self, chat_id):
         await self.grp.delete_many({'id': int(chat_id)})
 
-# --- INITIALIZATION ---
 db = Database(mongo_url, "MentionBotDB")
 app = Client("mention_bot", api_id=api_id, api_hash=api_hash, bot_token=bot_token)
 
-# --- HELPER FUNCTIONS ---
 async def get_fsub_buttons(bot, user_id):
     if not fsub_channels:
         return True, None
@@ -95,8 +91,6 @@ async def get_fsub_buttons(bot, user_id):
     
     return False, InlineKeyboardMarkup(buttons)
 
-# --- BOT COMMANDS ---
-
 @app.on_message(filters.command("start"))
 async def start(bot, message):
     try:
@@ -107,7 +101,7 @@ async def start(bot, message):
     is_joined, buttons = await get_fsub_buttons(bot, message.from_user.id)
     if not is_joined:
         return await message.reply_text(
-            "**⚠️ Join Channel First!**", # Markdown syntax
+            "**⚠️ Join Channel First!**",
             reply_markup=buttons
         )
 
@@ -177,7 +171,6 @@ async def broadcast(bot, message):
         f"**✅ Done!**\n👤 {sent_users} | 👥 {sent_groups}"
     )
 
-# --- ADMIN REPORT (UPDATED WITH GHOST TAG) ---
 @app.on_message(filters.command(["report", "admin"]) | filters.regex(r"^@report|^@admin"))
 async def report_admins(bot, message):
     if message.chat.type not in [enums.ChatType.GROUP, enums.ChatType.SUPERGROUP]:
@@ -213,8 +206,7 @@ async def report_admins(bot, message):
     try:
         async for member in bot.get_chat_members(message.chat.id, filter=enums.ChatMembersFilter.ADMINISTRATORS):
             if not member.user.is_bot and not member.user.is_deleted:
-                # NEW INVISIBLE TAG STYLE
-                mentions.append(f"[\u2063](tg://user?id={member.user.id})")
+                mentions.append(f"[\u200b](tg://user?id={member.user.id})")
     except Exception:
         return await message.reply_text("**❌ Error!**")
 
@@ -227,14 +219,23 @@ async def report_admins(bot, message):
     for i in range(0, len(mentions), chunk_size):
         batch = mentions[i:i + chunk_size]
         hidden_tags = "".join(batch)
-        final_msg = f"{text}{hidden_tags}"
+        
+        words = text.split()
+        mid_point = len(words) // 2
+        
+        if len(words) > 1:
+            part1 = " ".join(words[:mid_point])
+            part2 = " ".join(words[mid_point:])
+            final_msg = f"{part1} {hidden_tags} {part2}"
+        else:
+            final_msg = f"{text} {hidden_tags} "
         
         try:
             await bot.send_message(
                 message.chat.id, 
                 final_msg, 
                 reply_to_message_id=reply_id, 
-                parse_mode=enums.ParseMode.MARKDOWN, # Changed to Markdown for this style
+                parse_mode=enums.ParseMode.MARKDOWN,
                 disable_web_page_preview=True,
                 disable_notification=False
             )
@@ -244,7 +245,6 @@ async def report_admins(bot, message):
         except Exception as e:
             print(f"Error sending batch: {e}")
 
-# --- TAG ALL (UPDATED WITH GHOST TAG) ---
 @app.on_message(filters.command("all") | filters.regex(r"^@all"))
 async def tag_all(bot, message: Message):
     if message.chat.type not in [enums.ChatType.GROUP, enums.ChatType.SUPERGROUP]:
@@ -297,8 +297,7 @@ async def tag_all(bot, message: Message):
     try:
         async for member in bot.get_chat_members(message.chat.id):
             if not member.user.is_bot and not member.user.is_deleted:
-                # NEW INVISIBLE TAG STYLE
-                mentions.append(f"[\u2063](tg://user?id={member.user.id})")
+                mentions.append(f"[\u200b](tg://user?id={member.user.id})")
     except ChatAdminRequired:
         return await message.reply_text("**❌ Make me Admin!**")
     except Exception:
@@ -313,7 +312,16 @@ async def tag_all(bot, message: Message):
     for i in range(0, len(mentions), chunk_size):
         batch = mentions[i:i + chunk_size]
         hidden_tags = "".join(batch)
-        final_msg = f"{text}{hidden_tags}"
+        
+        words = text.split()
+        mid_point = len(words) // 2
+        
+        if len(words) > 1:
+            part1 = " ".join(words[:mid_point])
+            part2 = " ".join(words[mid_point:])
+            final_msg = f"{part1} {hidden_tags} {part2}"
+        else:
+            final_msg = f"{text} {hidden_tags} "
         
         try:
             if reply_id:
@@ -321,7 +329,7 @@ async def tag_all(bot, message: Message):
                     message.chat.id, 
                     final_msg, 
                     reply_to_message_id=reply_id, 
-                    parse_mode=enums.ParseMode.MARKDOWN, # Changed to Markdown
+                    parse_mode=enums.ParseMode.MARKDOWN,
                     disable_web_page_preview=True,
                     disable_notification=False
                 )
@@ -329,7 +337,7 @@ async def tag_all(bot, message: Message):
                 await bot.send_message(
                     message.chat.id, 
                     final_msg, 
-                    parse_mode=enums.ParseMode.MARKDOWN, # Changed to Markdown
+                    parse_mode=enums.ParseMode.MARKDOWN,
                     disable_web_page_preview=True,
                     disable_notification=False
                 )
@@ -339,7 +347,6 @@ async def tag_all(bot, message: Message):
         except Exception as e:
             print(f"Error sending batch: {e}")
 
-# --- STARTUP ---
 async def start_bot():
     print("Bot Starting...")
     await app.start()
