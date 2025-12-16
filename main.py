@@ -17,6 +17,8 @@ fsub_channels = [int(x) for x in os.getenv("FSUB_CHANNELS", "").split()]
 
 REACTION_EMOJIS = ["👍", "❤️", "🔥", "🥰", "👏", "😁", "🎉", "🤩", "👌"]
 
+processed_messages = set()
+
 class Database:
     def __init__(self, uri, database_name):
         self._client = motor.motor_asyncio.AsyncIOMotorClient(uri)
@@ -173,6 +175,16 @@ async def broadcast(bot, message):
 
 @app.on_message(filters.command(["report", "admin"]))
 async def report_admins(bot, message):
+    msg_key = f"{message.chat.id}:{message.id}"
+    
+    if msg_key in processed_messages:
+        return
+    
+    processed_messages.add(msg_key)
+    
+    if len(processed_messages) > 1000:
+        processed_messages.clear()
+    
     if message.chat.type not in [enums.ChatType.GROUP, enums.ChatType.SUPERGROUP]:
         return await message.reply_text("**⚠️ Groups Only!**")
     
@@ -229,6 +241,16 @@ async def report_admins(bot, message):
 
 @app.on_message(filters.command("all"))
 async def tag_all(bot, message: Message):
+    msg_key = f"{message.chat.id}:{message.id}"
+    
+    if msg_key in processed_messages:
+        return
+    
+    processed_messages.add(msg_key)
+    
+    if len(processed_messages) > 1000:
+        processed_messages.clear()
+    
     if message.chat.type not in [enums.ChatType.GROUP, enums.ChatType.SUPERGROUP]:
         return await message.reply_text("**⚠️ Groups Only!**")
     
