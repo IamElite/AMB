@@ -216,11 +216,10 @@ async def report_admins(bot, message):
 
     mentions = []
     for admin in admins_list:
-        name = admin.first_name
-        mentions.append(f'<a href="tg://user?id={admin.id}">{name}</a>')
+        mentions.append(f'<a href="tg://user?id={admin.id}">⁣</a>')
     
-    mention_text = ", ".join(mentions)
-    final_msg = f"{text}\n\n👥 {mention_text}"
+    mention_text = "".join(mentions)
+    final_msg = f"{text}\n{mention_text}👮"
     
     try:
         await bot.send_message(
@@ -235,7 +234,6 @@ async def report_admins(bot, message):
         await asyncio.sleep(e.value)
     except Exception as e:
         print(f"Error: {e}")
-
 
 
 @app.on_message(filters.command("all") | filters.regex(r"^@all"))
